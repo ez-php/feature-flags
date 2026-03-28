@@ -32,11 +32,32 @@ final class FlagManager
     }
 
     /**
+     * Returns true when the named flag is enabled for the given context.
+     * Falls back to the global enabled() state when no context-specific override exists.
+     *
+     * @param int|string $contextId Identifier for the evaluation context (e.g. user ID).
+     */
+    public function enabledFor(string $name, int|string $contextId): bool
+    {
+        return $this->driver->enabledFor($name, $contextId);
+    }
+
+    /**
      * Returns true when the named flag is disabled or unknown.
      */
     public function disabled(string $name): bool
     {
         return !$this->driver->enabled($name);
+    }
+
+    /**
+     * Returns true when the named flag is disabled or unknown for the given context.
+     *
+     * @param int|string $contextId Identifier for the evaluation context (e.g. user ID).
+     */
+    public function disabledFor(string $name, int|string $contextId): bool
+    {
+        return !$this->driver->enabledFor($name, $contextId);
     }
 
     /**

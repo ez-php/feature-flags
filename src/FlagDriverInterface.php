@@ -21,6 +21,19 @@ interface FlagDriverInterface
     public function enabled(string $name): bool;
 
     /**
+     * Check whether a named flag is enabled for a specific context (e.g. user ID).
+     *
+     * Drivers that support per-context overrides resolve the context-specific value
+     * first and fall back to the global flag state when no override exists.
+     * Drivers without per-context storage simply delegate to enabled().
+     *
+     * Returns false for unknown flags — never throws.
+     *
+     * @param int|string $contextId Identifier for the evaluation context (e.g. user ID).
+     */
+    public function enabledFor(string $name, int|string $contextId): bool;
+
+    /**
      * Return all flags and their enabled state.
      *
      * @return array<string, bool>

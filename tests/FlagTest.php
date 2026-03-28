@@ -79,4 +79,32 @@ final class FlagTest extends TestCase
 
         Flag::enabled('f');
     }
+
+    public function testEnabledForReturnsTrueWhenFlagEnabled(): void
+    {
+        Flag::setManager(new FlagManager(new ArrayDriver(['checkout' => true])));
+
+        self::assertTrue(Flag::enabledFor('checkout', 42));
+    }
+
+    public function testEnabledForReturnsFalseForUnknownFlag(): void
+    {
+        Flag::setManager(new FlagManager(new ArrayDriver([])));
+
+        self::assertFalse(Flag::enabledFor('unknown', 1));
+    }
+
+    public function testDisabledForReturnsTrueForDisabledFlag(): void
+    {
+        Flag::setManager(new FlagManager(new ArrayDriver(['feature' => false])));
+
+        self::assertTrue(Flag::disabledFor('feature', 'user-1'));
+    }
+
+    public function testDisabledForReturnsFalseForEnabledFlag(): void
+    {
+        Flag::setManager(new FlagManager(new ArrayDriver(['feature' => true])));
+
+        self::assertFalse(Flag::disabledFor('feature', 'user-1'));
+    }
 }

@@ -53,11 +53,32 @@ final class Flag
     }
 
     /**
+     * Returns true when the named flag is enabled for the given context.
+     * Falls back to the global enabled() state when no context-specific override exists.
+     *
+     * @param int|string $contextId Identifier for the evaluation context (e.g. user ID).
+     */
+    public static function enabledFor(string $name, int|string $contextId): bool
+    {
+        return self::manager()->enabledFor($name, $contextId);
+    }
+
+    /**
      * Returns true when the named flag is disabled or unknown.
      */
     public static function disabled(string $name): bool
     {
         return self::manager()->disabled($name);
+    }
+
+    /**
+     * Returns true when the named flag is disabled or unknown for the given context.
+     *
+     * @param int|string $contextId Identifier for the evaluation context (e.g. user ID).
+     */
+    public static function disabledFor(string $name, int|string $contextId): bool
+    {
+        return self::manager()->disabledFor($name, $contextId);
     }
 
     /**

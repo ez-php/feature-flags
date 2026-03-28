@@ -42,6 +42,16 @@ final class FileDriver implements FlagDriverInterface
 
     /**
      * {@inheritDoc}
+     *
+     * FileDriver has no per-context storage — delegates to enabled().
+     */
+    public function enabledFor(string $name, int|string $contextId): bool
+    {
+        return $this->enabled($name);
+    }
+
+    /**
+     * {@inheritDoc}
      */
     public function all(): array
     {

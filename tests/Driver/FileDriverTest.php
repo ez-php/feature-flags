@@ -96,4 +96,22 @@ final class FileDriverTest extends TestCase
 
         self::assertSame(['feature' => true], $driver->all());
     }
+
+    public function testEnabledForDelegatesToEnabledWhenFlagIsEnabled(): void
+    {
+        file_put_contents($this->tempFile, "<?php return ['checkout' => true];");
+
+        $driver = new FileDriver($this->tempFile);
+
+        self::assertTrue($driver->enabledFor('checkout', 99));
+    }
+
+    public function testEnabledForReturnsFalseForDisabledFlag(): void
+    {
+        file_put_contents($this->tempFile, "<?php return ['dark-mode' => false];");
+
+        $driver = new FileDriver($this->tempFile);
+
+        self::assertFalse($driver->enabledFor('dark-mode', 'user-abc'));
+    }
 }

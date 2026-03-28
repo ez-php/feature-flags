@@ -47,4 +47,25 @@ final class ArrayDriverTest extends TestCase
 
         self::assertSame([], $driver->all());
     }
+
+    public function testEnabledForDelegatesToEnabledWhenFlagIsEnabled(): void
+    {
+        $driver = new ArrayDriver(['feature-x' => true]);
+
+        self::assertTrue($driver->enabledFor('feature-x', 42));
+    }
+
+    public function testEnabledForDelegatesToEnabledWhenFlagIsDisabled(): void
+    {
+        $driver = new ArrayDriver(['feature-x' => false]);
+
+        self::assertFalse($driver->enabledFor('feature-x', 42));
+    }
+
+    public function testEnabledForReturnsFalseForUnknownFlag(): void
+    {
+        $driver = new ArrayDriver([]);
+
+        self::assertFalse($driver->enabledFor('unknown', 'user-1'));
+    }
 }

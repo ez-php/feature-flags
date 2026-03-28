@@ -162,14 +162,14 @@ When adding a new module, add `"$ROOT/modules/<name>"` to the `PACKAGES` array i
 
 ```
 src/
-├── FlagDriverInterface.php           — contract: enabled(string): bool, all(): array<string, bool>
-├── FlagManager.php                   — delegates to driver; enabled(), disabled(), all()
+├── FlagDriverInterface.php           — contract: enabled(), enabledFor(), all()
+├── FlagManager.php                   — delegates to driver; enabled(), enabledFor(), disabled(), disabledFor(), all()
 ├── Flag.php                          — static facade backed by FlagManager singleton
 ├── FeatureFlagServiceProvider.php    — binds FlagManager and initialises the Flag facade
 └── Driver/
     ├── ArrayDriver.php               — in-memory array (testing + hardcoded flags)
     ├── FileDriver.php                — reads a PHP file returning array<string, bool>
-    └── DatabaseDriver.php            — reads feature_flags table via PDO
+    └── DatabaseDriver.php            — reads feature_flags and feature_flag_contexts tables via PDO
 
 tests/
 ├── TestCase.php
@@ -187,7 +187,12 @@ tests/
 
 ### FlagDriverInterface (`src/FlagDriverInterface.php`)
 
-Two-method contract: `enabled(string $name): bool` (single flag lookup, returns false for unknown flags — never throws) and `all(): array<string, bool>` (full flag map). All driver implementations must honour the no-throw invariant.
+Three-method contract:
+- `enabled(string $name): bool` — global flag lookup, returns false for unknown flags — never throws
+- `enabledFor(string $name, int|string $contextId): bool` — context-specific lookup (e.g. per user); drivers without per-context storage delegate to `enabled()`
+- `all(): array<string, bool>` — full global flag map
+
+All driver implementations must honour the no-throw invariant for all three methods.
 
 ---
 
@@ -205,13 +210,17 @@ Reads a PHP file via `require` on every call (no caching). The file must return 
 
 ### DatabaseDriver (`src/Driver/DatabaseDriver.php`)
 
-Queries a `feature_flags` table (`name VARCHAR PRIMARY KEY`, `enabled TINYINT`). All PDO calls are wrapped in `try/catch` — a missing table or connection error results in `false` / empty array, not an exception. This allows the database driver to be used in environments where the migrations have not yet run.
+Queries a `feature_flags` table (`name VARCHAR PRIMARY KEY`, `enabled TINYINT`) for global flag state.
+
+`enabledFor()` additionally checks a `feature_flag_contexts` table (`name`, `context_id`, `enabled`) for per-context overrides. If a matching row exists it takes precedence; otherwise the driver falls back to the global `enabled()` result. The `feature_flag_contexts` table is optional — a missing table is silently treated as no overrides (the `try/catch` in the contexts query falls through to `enabled()`).
+
+All PDO calls are wrapped in `try/catch` — a missing table or connection error results in `false` / empty array, not an exception. This allows the database driver to be used in environments where the migrations have not yet run.
 
 ---
 
 ### FlagManager (`src/FlagManager.php`)
 
-Thin wrapper around `FlagDriverInterface`. Adds the `disabled()` convenience method (`!enabled()`). Held as the facade's singleton — one manager instance per application lifetime.
+Thin wrapper around `FlagDriverInterface`. Adds convenience methods: `disabled()` (`!enabled()`), `enabledFor()`, and `disabledFor()` (`!enabledFor()`). Held as the facade's singleton — one manager instance per application lifetime.
 
 ---
 
@@ -241,8 +250,9 @@ Static facade following the same pattern as `Health`, `Mail`, and `Notification`
 
 - **Depends only on `ez-php/contracts`, not `ez-php/framework`.** Feature flags have no HTTP endpoint and do not need the Router. Depending only on contracts keeps the module usable in any container-based context, not just full framework applications.
 - **Unknown flags default to `false`, never throw.** This is the safe default: a missing flag does not crash the application. It is a programmer's responsibility to ensure flags are defined before shipping code that checks them.
-- **DatabaseDriver catches all exceptions silently.** A missing `feature_flags` table (e.g., before migrations run) returns false rather than halting the request. This is intentional: feature flags are not critical path — a degraded flag state is preferable to a 500 error.
+- **DatabaseDriver catches all exceptions silently.** A missing `feature_flags` table (e.g., before migrations run) returns false rather than halting the request. This is intentional: feature flags are not critical path — a degraded flag state is preferable to a 500 error. The same applies to `feature_flag_contexts` — the table is optional and a missing one is silently treated as "no overrides".
 - **FileDriver re-reads on every call (no caching).** OPcache handles the repeated `require` efficiently in production. Avoiding a cache layer keeps the driver simple and ensures flags are always fresh during development without a cache-clear step.
+- **`enabledFor()` on ArrayDriver and FileDriver delegates to `enabled()`.** Neither driver has per-context storage — `enabledFor()` is a global lookup for them. Use `DatabaseDriver` when per-context overrides are needed (e.g. gradual user rollouts).
 - **No flag management API (enable/disable via code).** The roadmap describes this module as "simple flag evaluation". Management belongs in a database migration, an admin interface, or a CLI tool — not in the flag module itself. Adding mutation methods would complicate the driver interface and force all drivers (including the read-only FileDriver) to implement writes they cannot support.
 
 ---
@@ -253,7 +263,7 @@ No external infrastructure required. All tests run in-process:
 
 - `ArrayDriverTest` — pure unit, no I/O
 - `FileDriverTest` — creates a temp file in `sys_get_temp_dir()`, cleans up in `tearDown`
-- `DatabaseDriverTest` — uses SQLite `:memory:` via real PDO; tests with and without the `feature_flags` table
+- `DatabaseDriverTest` — uses SQLite `:memory:` via real PDO; tests with and without the `feature_flags` and `feature_flag_contexts` tables; covers context-specific overrides and fallback behaviour
 - `FlagManagerTest` — uses `ArrayDriver`, pure unit
 - `FlagTest` — tests facade setup, delegation, fail-fast behaviour, and `resetManager()`; `tearDown` always calls `Flag::resetManager()` to prevent state leaking
 
