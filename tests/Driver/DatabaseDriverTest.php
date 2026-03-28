@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests\Driver;
+namespace Tests\FeatureFlags\Driver;
 
 use EzPhp\FeatureFlags\Driver\DatabaseDriver;
 use PDO;
