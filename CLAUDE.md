@@ -120,7 +120,7 @@ Every module `CLAUDE.md` must follow this exact structure:
 
 ### 3 — Docker scaffold
 
-Run from the new module root (requires `"ez-php/docker": "0.*"` in `require-dev`):
+Run from the new module root (requires `"ez-php/docker": "^1.0"` in `require-dev`):
 
 ```
 vendor/bin/docker-init
