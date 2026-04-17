@@ -31,6 +31,15 @@ if (Flag::disabled('dark-mode')) {
     // show light theme
 }
 
+// Context-aware evaluation (e.g. per-user gradual rollouts)
+if (Flag::enabledFor('beta-search', $user->id)) {
+    // show beta search to this user
+}
+
+if (Flag::disabledFor('new-ui', $user->id)) {
+    // show legacy UI for this user
+}
+
 $all = Flag::all(); // ['new-checkout' => true, 'dark-mode' => false]
 ```
 
@@ -84,10 +93,26 @@ $pdo->exec('
 ');
 ```
 
+For per-context overrides (e.g. per-user beta rollouts), also create `feature_flag_contexts`:
+
+```php
+$pdo->exec('
+    CREATE TABLE feature_flag_contexts (
+        name       VARCHAR(255) NOT NULL,
+        context_id VARCHAR(255) NOT NULL,
+        enabled    TINYINT(1)   NOT NULL DEFAULT 0,
+        PRIMARY KEY (name, context_id)
+    )
+');
+```
+
+When `enabledFor('flag', $userId)` is called, the driver checks `feature_flag_contexts` first; if no matching row exists, it falls back to the global `feature_flags` value. A missing `feature_flag_contexts` table is silently treated as "no overrides" — no migration is required for basic use.
+
 Insert flags directly via SQL or through your own admin interface:
 
 ```sql
 INSERT INTO feature_flags (name, enabled) VALUES ('new-checkout', 1);
+INSERT INTO feature_flag_contexts (name, context_id, enabled) VALUES ('beta-search', '42', 1);
 ```
 
 ---

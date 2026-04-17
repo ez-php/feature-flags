@@ -1,6 +1,6 @@
 {
     "name": "ez-php/feature-flags",
-    "version": "1.5.0",
+    "version": "1.5.1",
     "description": "Simple feature flag evaluation for the ez-php framework — File, Database, and Array drivers with a static Flag facade",
     "type": "library",
     "license": "MIT",
