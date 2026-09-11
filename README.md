@@ -51,10 +51,8 @@ Add a `config/flags.php` to your application:
 
 ```php
 return [
-    'flags' => [
-        'driver' => env('FLAGS_DRIVER', 'file'),  // file | database | array
-        'file'   => base_path('config/flags.php'),
-    ],
+    'driver' => env('FLAGS_DRIVER', 'file'),  // file | database | array
+    'file'   => base_path('config/flags.php'),
 ];
 ```
 
