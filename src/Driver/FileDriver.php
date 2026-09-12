@@ -11,12 +11,16 @@ use EzPhp\FeatureFlags\FlagDriverInterface;
  *
  * Reads feature flags from a PHP file that returns an associative array.
  *
- * Example file (config/flags.php):
+ * Example file (flags.php in the application root):
  *
  *   return [
  *       'new-checkout' => true,
  *       'dark-mode'    => false,
  *   ];
+ *
+ * This is not a `config/` file: the framework loads every `config/*.php` as a
+ * config namespace, so putting the definitions there would make the driver read
+ * its own configuration (`driver`, `file`) as the flag list.
  *
  * The file is re-evaluated on every call — no caching.
  * Returns false / empty array when the file is missing or returns a non-array.

@@ -51,10 +51,15 @@ Add a `config/flags.php` to your application:
 
 ```php
 return [
-    'driver' => env('FLAGS_DRIVER', 'file'),  // file | database | array
-    'file'   => base_path('config/flags.php'),
+    'driver' => getenv('FLAGS_DRIVER') ?: 'file',  // file | database | array
+    'file'   => getenv('FLAGS_FILE') ?: 'flags.php',
 ];
 ```
+
+> `file` must point **outside** `config/`. The framework loads every `config/*.php`
+> as a config namespace, so a definitions file at `config/flags.php` would be this
+> config file — the driver would then report `driver` and `file` as enabled flags
+> and none of your real ones.
 
 ### Drivers
 
@@ -66,7 +71,7 @@ return [
 
 ### File driver
 
-Create `config/flags.php` in your application:
+Create `flags.php` in your application root:
 
 ```php
 <?php

@@ -19,7 +19,7 @@ use EzPhp\FeatureFlags\Driver\FileDriver;
  *
  * Driver selection is controlled by `flags.driver` (default: `file`):
  *
- *   - `file`     — reads `flags.file` config key (default: `config/flags.php`)
+ *   - `file`     — reads `flags.file` config key (default: `flags.php`)
  *   - `database` — reads from `feature_flags` table via DatabaseInterface
  *   - `array`    — empty in-memory driver (useful for tests / CI environments)
  *
@@ -27,6 +27,18 @@ use EzPhp\FeatureFlags\Driver\FileDriver;
  */
 final class FeatureFlagServiceProvider extends ServiceProvider
 {
+    /**
+     * Default location of the flag definitions file.
+     *
+     * Note the absence of a `config/` prefix. The framework's ConfigLoader globs
+     * `config/*.php` and keys each file by its basename, which is where the
+     * `flags.driver` / `flags.file` keys come from. A definitions file at
+     * `config/flags.php` would therefore be the driver's own config file: the
+     * driver would report `driver` and `file` as enabled flags and find none of
+     * the real ones.
+     */
+    private const string DEFAULT_FILE = 'flags.php';
+
     /**
      * Bind FlagManager to the container.
      */
@@ -54,8 +66,8 @@ final class FeatureFlagServiceProvider extends ServiceProvider
                 return new FlagManager(new ArrayDriver([]));
             }
 
-            $rawPath = $config?->get('flags.file', 'config/flags.php');
-            $path = is_string($rawPath) ? $rawPath : 'config/flags.php';
+            $rawPath = $config?->get('flags.file', self::DEFAULT_FILE);
+            $path = is_string($rawPath) ? $rawPath : self::DEFAULT_FILE;
 
             return new FlagManager(new FileDriver($path));
         });
