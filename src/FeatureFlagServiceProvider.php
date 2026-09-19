@@ -11,6 +11,8 @@ use EzPhp\Contracts\ServiceProvider;
 use EzPhp\FeatureFlags\Driver\ArrayDriver;
 use EzPhp\FeatureFlags\Driver\DatabaseDriver;
 use EzPhp\FeatureFlags\Driver\FileDriver;
+use EzPhp\FeatureFlags\Driver\RedisDriver;
+use Redis;
 
 /**
  * Class FeatureFlagServiceProvider
@@ -21,6 +23,7 @@ use EzPhp\FeatureFlags\Driver\FileDriver;
  *
  *   - `file`     — reads `flags.file` config key (default: `flags.php`)
  *   - `database` — reads from `feature_flags` table via DatabaseInterface
+ *   - `redis`    — reads from Redis hashes; connects using `flags.redis.host`/`flags.redis.port`/`flags.redis.database`
  *   - `array`    — empty in-memory driver (useful for tests / CI environments)
  *
  * @package EzPhp\FeatureFlags
@@ -60,6 +63,21 @@ final class FeatureFlagServiceProvider extends ServiceProvider
                 $pdo = $app->make(DatabaseInterface::class)->getPdo();
 
                 return new FlagManager(new DatabaseDriver($pdo));
+            }
+
+            if ($driverName === 'redis') {
+                $hostValue = $config?->get('flags.redis.host', '127.0.0.1');
+                $portValue = $config?->get('flags.redis.port', 6379);
+                $databaseValue = $config?->get('flags.redis.database', 0);
+                $host = is_string($hostValue) ? $hostValue : '127.0.0.1';
+                $port = is_int($portValue) ? $portValue : 6379;
+                $database = is_int($databaseValue) ? $databaseValue : 0;
+
+                $redis = new Redis();
+                $redis->connect($host, $port);
+                $redis->select($database);
+
+                return new FlagManager(new RedisDriver($redis));
             }
 
             if ($driverName === 'array') {

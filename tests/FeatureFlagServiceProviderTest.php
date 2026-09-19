@@ -54,4 +54,50 @@ final class FeatureFlagServiceProviderTest extends TestCase
         // The facade is now usable without throwing.
         $this->assertSame([], Flag::all());
     }
+
+    public function test_register_binds_redis_driver_when_configured(): void
+    {
+        if (!extension_loaded('redis')) {
+            $this->markTestSkipped('ext-redis is not available.');
+        }
+
+        $host = getenv('REDIS_HOST') ?: '127.0.0.1';
+        $port = (int) (getenv('REDIS_PORT') ?: 6379);
+
+        $redis = new \Redis();
+
+        try {
+            $connected = @$redis->connect($host, $port);
+        } catch (\RedisException) {
+            $this->markTestSkipped("Redis is not available at {$host}:{$port}.");
+        }
+
+        if (!$connected) {
+            $this->markTestSkipped("Redis is not available at {$host}:{$port}.");
+        }
+
+        $redis->select(3);
+        $redis->flushDB();
+        // A value only RedisDriver's hash-based lookup can see — FileDriver
+        // (the fallback branch this test must NOT be exercising) would read
+        // from a PHP file and could never observe this.
+        $redis->hSet('feature_flags', 'redis-only-flag', '1');
+
+        $container = new FakeContainer(new FakeConfig([
+            'flags.driver' => 'redis',
+            'flags.redis.host' => $host,
+            'flags.redis.port' => $port,
+            'flags.redis.database' => 3,
+        ]));
+        $provider = new FeatureFlagServiceProvider($container);
+
+        $provider->register();
+
+        /** @var FlagManager $manager */
+        $manager = $container->make(FlagManager::class);
+
+        $this->assertTrue($manager->enabled('redis-only-flag'));
+
+        $redis->flushDB();
+    }
 }

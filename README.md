@@ -51,8 +51,13 @@ Add a `config/flags.php` to your application:
 
 ```php
 return [
-    'driver' => getenv('FLAGS_DRIVER') ?: 'file',  // file | database | array
+    'driver' => getenv('FLAGS_DRIVER') ?: 'file',  // file | database | redis | array
     'file'   => getenv('FLAGS_FILE') ?: 'flags.php',
+    'redis'  => [
+        'host'     => getenv('FLAGS_REDIS_HOST') ?: '127.0.0.1',
+        'port'     => (int) (getenv('FLAGS_REDIS_PORT') ?: 6379),
+        'database' => (int) (getenv('FLAGS_REDIS_DATABASE') ?: 0),
+    ],
 ];
 ```
 
@@ -67,6 +72,7 @@ return [
 |------------|-----------------|--------------------------------------------------|
 | `file`     | `file`          | Reads a PHP file returning `array<string, bool>` |
 | `database` | `database`      | Reads a `feature_flags` table via PDO            |
+| `redis`    | `redis`         | Reads `feature_flags` / `feature_flags:contexts:<name>` hashes via ext-redis |
 | `array`    | `array`         | Empty in-memory driver (CI / test environments)  |
 
 ### File driver
@@ -118,6 +124,19 @@ INSERT INTO feature_flags (name, enabled) VALUES ('new-checkout', 1);
 INSERT INTO feature_flag_contexts (name, context_id, enabled) VALUES ('beta-search', '42', 1);
 ```
 
+### Redis driver
+
+Same two-hash shape as the database driver's two tables:
+
+```php
+$redis->hSet('feature_flags', 'new-checkout', '1');
+$redis->hSet('feature_flags:contexts:beta-search', '42', '1'); // per-context override
+```
+
+`enabledFor('beta-search', 42)` checks the context hash first, then falls back to the
+global `feature_flags` hash when no override exists — identical precedence to the
+database driver.
+
 ---
 
 ## Behaviour
@@ -134,7 +153,7 @@ INSERT INTO feature_flag_contexts (name, context_id, enabled) VALUES ('beta-sear
 docker compose exec app composer test
 ```
 
-All tests run without external infrastructure (SQLite `:memory:` for the database driver, temp files for the file driver).
+Most tests run without external infrastructure (SQLite `:memory:` for the database driver, temp files for the file driver). `RedisDriverTest` requires a live Redis instance and is skipped automatically when `ext-redis` isn't loaded.
 
 ---
 

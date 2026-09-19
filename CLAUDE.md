@@ -257,7 +257,8 @@ src/
 └── Driver/
     ├── ArrayDriver.php               — in-memory array (testing + hardcoded flags)
     ├── FileDriver.php                — reads a PHP file returning array<string, bool>
-    └── DatabaseDriver.php            — reads feature_flags and feature_flag_contexts tables via PDO
+    ├── DatabaseDriver.php            — reads feature_flags and feature_flag_contexts tables via PDO
+    └── RedisDriver.php               — reads feature_flags / feature_flags:contexts:<name> hashes via ext-redis
 
 tests/
 ├── TestCase.php
@@ -266,7 +267,8 @@ tests/
 └── Driver/
     ├── ArrayDriverTest.php
     ├── FileDriverTest.php            — uses sys_get_temp_dir() temp file
-    └── DatabaseDriverTest.php        — uses SQLite :memory:
+    ├── DatabaseDriverTest.php        — uses SQLite :memory:
+    └── RedisDriverTest.php           — requires a live Redis instance; skipped when ext-redis is unavailable; uses Redis database 3
 ```
 
 ---
@@ -306,6 +308,12 @@ All PDO calls are wrapped in `try/catch` — a missing table or connection error
 
 ---
 
+### RedisDriver (`src/Driver/RedisDriver.php`)
+
+Same schema shape as `DatabaseDriver`, mapped onto Redis hashes: `HSET feature_flags <name> 1|0` for global state, `HSET feature_flags:contexts:<name> <contextId> 1|0` for the optional per-context override. `enabledFor()` checks the per-flag context hash first (`HGET feature_flags:contexts:<name> <contextId>`) and falls back to `enabled()` when no override exists — same precedence as `DatabaseDriver`'s `feature_flag_contexts` → `feature_flags` fallback. Requires `ext-redis`; the constructor throws `RuntimeException` if the extension isn't loaded, mirroring `ez-php/rate-limiter`'s `RedisDriver`.
+
+---
+
 ### FlagManager (`src/FlagManager.php`)
 
 Thin wrapper around `FlagDriverInterface`. Adds convenience methods: `disabled()` (`!enabled()`), `enabledFor()`, and `disabledFor()` (`!enabledFor()`). Held as the facade's singleton — one manager instance per application lifetime.
@@ -326,6 +334,7 @@ Static facade following the same pattern as `Health`, `Mail`, and `Notification`
 |--------------|-------------------|----------------------------------------------------------|
 | `file`       | `FileDriver`      | Path from `flags.file` config key (default: `config/flags.php`) |
 | `database`   | `DatabaseDriver`  | Requires `DatabaseInterface` bound in the container      |
+| `redis`      | `RedisDriver`     | Connects using `flags.redis.host`/`flags.redis.port`/`flags.redis.database` (defaults: `127.0.0.1`/`6379`/`0`) |
 | `array`      | `ArrayDriver`     | Empty in-memory driver; useful for CI/test environments  |
 
 `ConfigInterface` is resolved with `try/catch` — defaults apply when Config is not bound. `DatabaseInterface` is resolved directly (throws if missing when `database` driver is requested — fail-fast).
@@ -340,20 +349,23 @@ Static facade following the same pattern as `Health`, `Mail`, and `Notification`
 - **Unknown flags default to `false`, never throw.** This is the safe default: a missing flag does not crash the application. It is a programmer's responsibility to ensure flags are defined before shipping code that checks them.
 - **DatabaseDriver catches all exceptions silently.** A missing `feature_flags` table (e.g., before migrations run) returns false rather than halting the request. This is intentional: feature flags are not critical path — a degraded flag state is preferable to a 500 error. The same applies to `feature_flag_contexts` — the table is optional and a missing one is silently treated as "no overrides".
 - **FileDriver re-reads on every call (no caching).** OPcache handles the repeated `require` efficiently in production. Avoiding a cache layer keeps the driver simple and ensures flags are always fresh during development without a cache-clear step.
-- **`enabledFor()` on ArrayDriver and FileDriver delegates to `enabled()`.** Neither driver has per-context storage — `enabledFor()` is a global lookup for them. Use `DatabaseDriver` when per-context overrides are needed (e.g. gradual user rollouts).
+- **`enabledFor()` on ArrayDriver and FileDriver delegates to `enabled()`.** Neither driver has per-context storage — `enabledFor()` is a global lookup for them. Use `DatabaseDriver` or `RedisDriver` when per-context overrides are needed (e.g. gradual user rollouts).
+- **`RedisDriver` mirrors `DatabaseDriver`'s schema, not `ez-php/cache`'s driver set.** Global flags in one hash, per-flag context overrides in a second hash keyed by flag name — the same two-table shape as `DatabaseDriver`, just on Redis hashes instead of SQL tables. This keeps the two drivers' semantics identical (same fallback order, same "missing storage → false, never throw") rather than inventing a Redis-specific flag model.
 - **No flag management API (enable/disable via code).** The roadmap describes this module as "simple flag evaluation". Management belongs in a database migration, an admin interface, or a CLI tool — not in the flag module itself. Adding mutation methods would complicate the driver interface and force all drivers (including the read-only FileDriver) to implement writes they cannot support.
 
 ---
 
 ## Testing approach
 
-No external infrastructure required. All tests run in-process:
+Most tests need no external infrastructure; `RedisDriverTest` is the one exception:
 
 - `ArrayDriverTest` — pure unit, no I/O
 - `FileDriverTest` — creates a temp file in `sys_get_temp_dir()`, cleans up in `tearDown`
 - `DatabaseDriverTest` — uses SQLite `:memory:` via real PDO; tests with and without the `feature_flags` and `feature_flag_contexts` tables; covers context-specific overrides and fallback behaviour
+- `RedisDriverTest` — requires a live Redis instance (available via Docker); skipped automatically when `ext-redis` is not loaded; uses Redis database `3` to avoid colliding with `ez-php/queue` (database `1`) and `ez-php/rate-limiter` (database `2`); `flushDB()` in `setUp`/`tearDown`
 - `FlagManagerTest` — uses `ArrayDriver`, pure unit
 - `FlagTest` — tests facade setup, delegation, fail-fast behaviour, and `resetManager()`; `tearDown` always calls `Flag::resetManager()` to prevent state leaking
+- `FeatureFlagServiceProviderTest::test_register_binds_redis_driver_when_configured` — also requires live Redis (self-skips); seeds a flag directly via `hSet()` so the assertion can only pass if `RedisDriver` (not the `file` fallback) actually served the read
 
 ---
 
