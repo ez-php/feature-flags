@@ -258,7 +258,8 @@ src/
     ├── ArrayDriver.php               — in-memory array (testing + hardcoded flags)
     ├── FileDriver.php                — reads a PHP file returning array<string, bool>
     ├── DatabaseDriver.php            — reads feature_flags and feature_flag_contexts tables via PDO
-    └── RedisDriver.php               — reads feature_flags / feature_flags:contexts:<name> hashes via ext-redis
+    ├── RedisDriver.php               — reads feature_flags / feature_flags:contexts:<name> hashes via ext-redis
+    └── RolloutDriver.php             — decorator: percentage rollouts per flag (flags.rollouts), deterministic crc32 bucket
 
 tests/
 ├── TestCase.php
@@ -267,6 +268,7 @@ tests/
 └── Driver/
     ├── ArrayDriverTest.php
     ├── FileDriverTest.php            — uses sys_get_temp_dir() temp file
+    ├── RolloutDriverTest.php         — determinism, 0/100 bounds, share ≈ percentage, monotonic growth, clamping, delegation
     ├── DatabaseDriverTest.php        — uses SQLite :memory:
     └── RedisDriverTest.php           — requires a live Redis instance; skipped when ext-redis is unavailable; uses Redis database 3
 ```
@@ -307,6 +309,10 @@ Queries a `feature_flags` table (`name VARCHAR PRIMARY KEY`, `enabled TINYINT`) 
 All PDO calls are wrapped in `try/catch` — a missing table or connection error results in `false` / empty array, not an exception. This allows the database driver to be used in environments where the migrations have not yet run.
 
 ---
+
+### RolloutDriver (`src/Driver/RolloutDriver.php`)
+
+Decorator over any `FlagDriverInterface` taking `array<string, int>` rollouts (flag → 0–100, clamped). `enabledFor($name, $id)` is `crc32($name.'|'.$id) % 100 < percent` for flags with a rollout and delegated otherwise; `enabled()` is true only at 100 %. `FeatureFlagServiceProvider` wraps the selected driver when `flags.rollouts` is non-empty (non-int values are ignored).
 
 ### RedisDriver (`src/Driver/RedisDriver.php`)
 
@@ -354,6 +360,7 @@ Static facade following the same pattern as `Health`, `Mail`, and `Notification`
 - **No flag management API (enable/disable via code).** The roadmap describes this module as "simple flag evaluation". Management belongs in a database migration, an admin interface, or a CLI tool — not in the flag module itself. Adding mutation methods would complicate the driver interface and force all drivers (including the read-only FileDriver) to implement writes they cannot support.
 
 ---
+- **Percentage rollouts are a decorator, not a new storage format.** `Driver\RolloutDriver` wraps whichever driver is configured; the percentages come from `flags.rollouts` (flag name → 0–100), so the file/database/redis stores stay boolean and unchanged. The bucket is `crc32(name.'|'.contextId) % 100`: deterministic per user, monotonic when the percentage is raised, independent between flags. A configured rollout *replaces* the inner driver's answer for that flag; `enabled()` without a context is true only at 100 %. The per-context entry point already existed (`Flag::enabledFor()`), so no signature changed.
 
 ## Testing approach
 
@@ -372,7 +379,7 @@ Most tests need no external infrastructure; `RedisDriverTest` is the one excepti
 ## What does not belong in this module
 
 - **Flag management (enable/disable via API)** — use direct DB access, a migration, or an admin panel
-- **Percentage rollouts / user targeting** — use a dedicated feature management service
+- **Targeting rules beyond a percentage** (segments, attribute rules, schedules, A/B experiments with analytics) — use a dedicated feature management service. Plain percentage rollouts *are* here (`RolloutDriver`)
 - **Flag caching layer** — rely on OPcache (FileDriver) or application-level caching
 - **HTTP endpoint for flag listing** — expose flags via your own controller if needed
 - **Flag validation or type enforcement** — flags are booleans only; typed variants belong in a separate abstraction

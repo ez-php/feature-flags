@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests;
 
 use EzPhp\FeatureFlags\Driver\ArrayDriver;
+use EzPhp\FeatureFlags\Driver\RolloutDriver;
 use EzPhp\FeatureFlags\FeatureFlagServiceProvider;
 use EzPhp\FeatureFlags\Flag;
 use EzPhp\FeatureFlags\FlagManager;
@@ -23,6 +24,7 @@ use Tests\Support\FakeContainer;
 #[CoversClass(FeatureFlagServiceProvider::class)]
 #[UsesClass(FlagManager::class)]
 #[UsesClass(ArrayDriver::class)]
+#[UsesClass(RolloutDriver::class)]
 #[UsesClass(Flag::class)]
 final class FeatureFlagServiceProviderTest extends TestCase
 {
@@ -52,6 +54,31 @@ final class FeatureFlagServiceProviderTest extends TestCase
         $provider->boot();
 
         // The facade is now usable without throwing.
+        $this->assertSame([], Flag::all());
+    }
+
+    public function test_rollouts_from_config_enable_percentage_targeting(): void
+    {
+        $container = new FakeContainer(new FakeConfig([
+            'flags.driver' => 'array',
+            'flags.rollouts' => ['everyone' => 100, 'nobody' => 0, 'ignored' => 'fifty'],
+        ]));
+        $provider = new FeatureFlagServiceProvider($container);
+        $provider->register();
+        $provider->boot();
+
+        $this->assertTrue(Flag::enabledFor('everyone', 'user-1'));
+        $this->assertFalse(Flag::enabledFor('nobody', 'user-1'));
+        $this->assertFalse(Flag::enabledFor('ignored', 'user-1'), 'non-integer percentages are ignored');
+    }
+
+    public function test_without_rollouts_the_driver_is_not_wrapped(): void
+    {
+        $container = new FakeContainer(new FakeConfig(['flags.driver' => 'array', 'flags.rollouts' => []]));
+        $provider = new FeatureFlagServiceProvider($container);
+        $provider->register();
+        $provider->boot();
+
         $this->assertSame([], Flag::all());
     }
 

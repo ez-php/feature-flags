@@ -139,6 +139,28 @@ database driver.
 
 ---
 
+## Percentage rollouts
+
+Release a flag to a stable slice of your users by adding `rollouts` to `config/flags.php`:
+
+```php
+return [
+    'driver' => 'file',
+    'file'   => 'flags.php',
+    'rollouts' => [
+        'new-checkout' => 25,   // 25 % of contexts
+    ],
+];
+```
+
+```php
+Flag::enabledFor('new-checkout', $user->id);   // same user → same answer, every time
+```
+
+The bucket is `crc32(flag . '|' . id) % 100`, so a user stays in when you raise the percentage (10 → 25 only adds users) and different flags pick different slices. A rollout **replaces** the stored value for that flag; `Flag::enabled('new-checkout')` (no context) is only `true` at 100. Flags without a rollout behave as before.
+
+---
+
 ## Behaviour
 
 - **Unknown flags default to `false`** — `Flag::enabled('unknown')` never throws.
