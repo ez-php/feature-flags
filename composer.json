@@ -28,6 +28,9 @@
         "php": "^8.5",
         "ez-php/contracts": "^2.0"
     },
+    "suggest": {
+        "ext-redis": "Needed for Driver\\RedisDriver"
+    },
     "require-dev": {
         "ez-php/docker": "^2.0",
         "phpunit/phpunit": "^13.0",
