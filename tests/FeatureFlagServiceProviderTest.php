@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests;
 
 use EzPhp\FeatureFlags\Driver\ArrayDriver;
+use EzPhp\FeatureFlags\Driver\RedisDriver;
 use EzPhp\FeatureFlags\Driver\RolloutDriver;
 use EzPhp\FeatureFlags\FeatureFlagServiceProvider;
 use EzPhp\FeatureFlags\Flag;
@@ -24,6 +25,7 @@ use Tests\Support\FakeContainer;
 #[CoversClass(FeatureFlagServiceProvider::class)]
 #[UsesClass(FlagManager::class)]
 #[UsesClass(ArrayDriver::class)]
+#[UsesClass(RedisDriver::class)]
 #[UsesClass(RolloutDriver::class)]
 #[UsesClass(Flag::class)]
 final class FeatureFlagServiceProviderTest extends TestCase
