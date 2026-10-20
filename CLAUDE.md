@@ -314,7 +314,7 @@ Constructed with a `array<string, bool>` literal. Intended for tests and for har
 
 ### FileDriver (`src/Driver/FileDriver.php`)
 
-Reads a PHP file via `require` on every call (no caching). The file must return an `array<string, mixed>` — values are cast to `bool`. Returns an empty array (never throws) when the file is missing or returns a non-array. Default path: `config/flags.php`.
+Reads a PHP file via `require` on every call (no caching). The file must return an `array<string, mixed>` — values are cast to `bool`. Returns an empty array (never throws) when the file is missing or returns a non-array. Default path: `flags.php` in the application root — never `config/flags.php`, which the framework loads as the driver's own config namespace (every real flag would then read `false`).
 
 ---
 
@@ -356,7 +356,7 @@ Static facade following the same pattern as `Health`, `Mail`, and `Notification`
 
 | Config value | Driver used       | Notes                                                    |
 |--------------|-------------------|----------------------------------------------------------|
-| `file`       | `FileDriver`      | Path from `flags.file` config key (default: `config/flags.php`) |
+| `file`       | `FileDriver`      | Path from `flags.file` config key (default: `flags.php` in the application root — must not live in `config/`) |
 | `database`   | `DatabaseDriver`  | Requires `DatabaseInterface` bound in the container      |
 | `redis`      | `RedisDriver`     | Connects using `flags.redis.host`/`flags.redis.port`/`flags.redis.database` (defaults: `127.0.0.1`/`6379`/`0`) |
 | `array`      | `ArrayDriver`     | Empty in-memory driver; useful for CI/test environments  |

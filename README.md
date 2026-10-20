@@ -56,7 +56,7 @@ return [
     'redis'  => [
         'host'     => getenv('FLAGS_REDIS_HOST') ?: '127.0.0.1',
         'port'     => (int) (getenv('FLAGS_REDIS_PORT') ?: 6379),
-        'database' => (int) (getenv('FLAGS_REDIS_DATABASE') ?: 0),
+        'database' => (int) (getenv('FLAGS_REDIS_DB') ?: 0),
     ],
 ];
 ```
