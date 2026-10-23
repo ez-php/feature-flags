@@ -282,6 +282,8 @@ src/
 
 tests/
 ├── TestCase.php
+├── TemplateFlagsLayoutTest.php  — Pins the two flag files apart
+├── FeatureFlagServiceProviderTest.php  — Smoke test: FeatureFlagServiceProvider registers and boots its bindings in a minimal container context without error
 ├── FlagTest.php                      — facade tests
 ├── FlagManagerTest.php
 └── Driver/
