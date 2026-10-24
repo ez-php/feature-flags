@@ -286,12 +286,15 @@ tests/
 ├── FeatureFlagServiceProviderTest.php  — Smoke test: FeatureFlagServiceProvider registers and boots its bindings in a minimal container context without error
 ├── FlagTest.php                      — facade tests
 ├── FlagManagerTest.php
-└── Driver/
-    ├── ArrayDriverTest.php
-    ├── FileDriverTest.php            — uses sys_get_temp_dir() temp file
-    ├── RolloutDriverTest.php         — determinism, 0/100 bounds, share ≈ percentage, monotonic growth, clamping, delegation
-    ├── DatabaseDriverTest.php        — uses SQLite :memory:
-    └── RedisDriverTest.php           — requires a live Redis instance (module stack `redis` service on host port 6385, CI `redis` service container, or the root stack); skipped when ext-redis is unavailable; uses Redis database 3
+├── Driver/
+│   ├── ArrayDriverTest.php
+│   ├── FileDriverTest.php            — uses sys_get_temp_dir() temp file
+│   ├── RolloutDriverTest.php         — determinism, 0/100 bounds, share ≈ percentage, monotonic growth, clamping, delegation
+│   ├── DatabaseDriverTest.php        — uses SQLite :memory:
+│   └── RedisDriverTest.php           — requires a live Redis instance (module stack `redis` service on host port 6385, CI `redis` service container, or the root stack); skipped when ext-redis is unavailable; uses Redis database 3
+└── Support/
+    ├── FakeConfig.php               — minimal ConfigInterface stub for service provider tests
+    └── FakeContainer.php            — minimal ContainerInterface stub for service provider tests
 ```
 
 ---
