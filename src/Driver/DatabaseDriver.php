@@ -112,12 +112,7 @@ final class DatabaseDriver implements FlagDriverInterface
                 return [];
             }
 
-            /** @var mixed $rows */
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-            if (!is_array($rows)) {
-                return [];
-            }
 
             $flags = [];
 
