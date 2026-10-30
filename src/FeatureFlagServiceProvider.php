@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace EzPhp\FeatureFlags;
 
+use EzPhp\Cache\CacheInterface;
 use EzPhp\Contracts\ConfigInterface;
 use EzPhp\Contracts\ContainerInterface;
 use EzPhp\Contracts\DatabaseInterface;
 use EzPhp\Contracts\ServiceProvider;
 use EzPhp\FeatureFlags\Driver\ArrayDriver;
+use EzPhp\FeatureFlags\Driver\CachedDriver;
 use EzPhp\FeatureFlags\Driver\DatabaseDriver;
 use EzPhp\FeatureFlags\Driver\FileDriver;
 use EzPhp\FeatureFlags\Driver\RedisDriver;
@@ -63,7 +65,9 @@ final class FeatureFlagServiceProvider extends ServiceProvider
             $rawDriver = $config?->get('flags.driver', 'file');
             $driverName = is_string($rawDriver) ? $rawDriver : 'file';
 
-            return new FlagManager($this->withRollouts($this->makeDriver($app, $config, $driverName), $config));
+            $driver = $this->withCache($app, $config, $this->makeDriver($app, $config, $driverName));
+
+            return new FlagManager($this->withRollouts($driver, $config));
         });
     }
 
@@ -107,6 +111,28 @@ final class FeatureFlagServiceProvider extends ServiceProvider
         $path = is_string($rawPath) ? $rawPath : self::DEFAULT_FILE;
 
         return new FileDriver($path);
+    }
+
+    /**
+     * Wrap the store in a CachedDriver when `flags.cache_ttl` is above 0 and a
+     * CacheInterface is bound (ez-php/cache, a suggest). Applied below the rollout
+     * decorator, so rollouts are still evaluated per context.
+     *
+     * @param ContainerInterface   $app
+     * @param ConfigInterface|null $config
+     * @param FlagDriverInterface  $driver
+     *
+     * @return FlagDriverInterface
+     */
+    private function withCache(ContainerInterface $app, ?ConfigInterface $config, FlagDriverInterface $driver): FlagDriverInterface
+    {
+        $ttl = $config?->get('flags.cache_ttl', 0);
+
+        if (!is_numeric($ttl) || (int) $ttl < 1 || !$app->has(CacheInterface::class)) {
+            return $driver;
+        }
+
+        return new CachedDriver($driver, $app->make(CacheInterface::class), (int) $ttl);
     }
 
     /**

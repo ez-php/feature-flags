@@ -161,6 +161,22 @@ The bucket is `crc32(flag . '|' . id) % 100`, so a user stays in when you raise 
 
 ---
 
+## Caching flag answers
+
+The database and Redis drivers run one query per check. With `ez-php/cache` installed (and its
+provider registered), set `flags.cache_ttl` (`FLAGS_CACHE_TTL`) to cache answers for that many
+seconds — one `all()` snapshot serves every `Flag::enabled()` check, and `Flag::enabledFor()`
+answers are cached per flag and context:
+
+```php
+// config/flags.php
+'cache_ttl' => (int) (getenv('FLAGS_CACHE_TTL') ?: 0), // e.g. 60
+```
+
+Changes in the store become visible after at most the TTL. To publish one at once, call
+`forget()` on a `Driver\CachedDriver` you hold (or wrap the driver yourself:
+`new CachedDriver($driver, $cache, ttl: 60)`). Rollouts are still evaluated per context.
+
 ## Behaviour
 
 - **Unknown flags default to `false`** — `Flag::enabled('unknown')` never throws.

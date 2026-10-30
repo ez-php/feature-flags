@@ -151,7 +151,7 @@ php make_module.php <name> --description="..." --services=mysql,redis --extensio
 
 `<name>` is the kebab-case package name; the namespace is derived as
 `EzPhp\<PascalCase>` (each `-`-separated word upper-cased) unless `--namespace=`
-overrides it. Existing exceptions the guess gets wrong: `asyncapi` → `AsyncApi`,
+overrides it. Existing exceptions the guess gets wrong: `asyncapi` → `AsyncApi`, `asyncapi-ui` → `AsyncApiUi`,
 `bignum` → `BigNum`, `dataloader` → `DataLoader`, `dotenv` → `Env`, `graphql` → `GraphQL`, `graphql-subscriptions` → `GraphQLSubscriptions`, `oauth` → `OAuth`,
 `opcache` → `OPCache`, `openapi` → `OpenApi`, `qrcode` → `QrCode`, `swagger-ui` → `SwaggerUI`, `webauthn` → `WebAuthn` and
 `websocket` → `WebSocket`; `websocket-client` → `WebsocketClient`, `websocket-tls` → `WebsocketTls`,
@@ -278,7 +278,8 @@ src/
     ├── FileDriver.php                — reads a PHP file returning array<string, bool>
     ├── DatabaseDriver.php            — reads feature_flags and feature_flag_contexts tables via PDO
     ├── RedisDriver.php               — reads feature_flags / feature_flags:contexts:<name> hashes via ext-redis
-    └── RolloutDriver.php             — decorator: percentage rollouts per flag (flags.rollouts), deterministic crc32 bucket
+    ├── RolloutDriver.php             — decorator: percentage rollouts per flag (flags.rollouts), deterministic crc32 bucket
+    └── CachedDriver.php              — decorator: TTL'd all() snapshot + per-context answers in ez-php/cache, memoised per instance; forget() bumps a version key
 
 tests/
 ├── TestCase.php
@@ -289,6 +290,7 @@ tests/
 ├── Driver/
 │   ├── ArrayDriverTest.php
 │   ├── FileDriverTest.php            — uses sys_get_temp_dir() temp file
+│   ├── CachedDriverTest.php          — one store read for many checks, shared via the cache, TTL expiry, per-context caching, forget(), corrupted entry, TTL guard
 │   ├── RolloutDriverTest.php         — determinism, 0/100 bounds, share ≈ percentage, monotonic growth, clamping, delegation
 │   ├── DatabaseDriverTest.php        — uses SQLite :memory:
 │   └── RedisDriverTest.php           — requires a live Redis instance (module stack `redis` service on host port 6385, CI `redis` service container, or the root stack); skipped when ext-redis is unavailable; uses Redis database 3
@@ -369,6 +371,8 @@ Static facade following the same pattern as `Health`, `Mail`, and `Notification`
 
 `ConfigInterface` is resolved with `try/catch` — defaults apply when Config is not bound. `DatabaseInterface` is resolved directly (throws if missing when `database` driver is requested — fail-fast).
 
+With `flags.cache_ttl` > 0 and a bound `CacheInterface` (ez-php/cache), the store driver is wrapped in `CachedDriver` before the rollout decorator.
+
 `boot()` calls `Flag::setManager()`. No route registration — this module has no HTTP endpoint.
 
 ---
@@ -382,8 +386,7 @@ Static facade following the same pattern as `Health`, `Mail`, and `Notification`
 - **`enabledFor()` on ArrayDriver and FileDriver delegates to `enabled()`.** Neither driver has per-context storage — `enabledFor()` is a global lookup for them. Use `DatabaseDriver` or `RedisDriver` when per-context overrides are needed (e.g. gradual user rollouts).
 - **`RedisDriver` mirrors `DatabaseDriver`'s schema, not `ez-php/cache`'s driver set.** Global flags in one hash, per-flag context overrides in a second hash keyed by flag name — the same two-table shape as `DatabaseDriver`, just on Redis hashes instead of SQL tables. This keeps the two drivers' semantics identical (same fallback order, same "missing storage → false, never throw") rather than inventing a Redis-specific flag model.
 - **No flag management API (enable/disable via code).** The roadmap describes this module as "simple flag evaluation". Management belongs in a database migration, an admin interface, or a CLI tool — not in the flag module itself. Adding mutation methods would complicate the driver interface and force all drivers (including the read-only FileDriver) to implement writes they cannot support.
-
----
+- **Caching is a decorator over the store, opt-in by TTL.** `DatabaseDriver`/`RedisDriver` run one query per check, so a page checking N flags costs N round trips. `Driver\CachedDriver` answers `enabled()`/`all()` from one `all()` snapshot stored in `ez-php/cache` for `flags.cache_ttl` seconds and memoised in the instance until the same TTL runs out (so long-running workers refresh); `enabledFor()` is cached per name/context pair because drivers decide it per context. `forget()` increments a version key that is part of every cache key, invalidating all pairs without enumerating them. It wraps the store *below* `RolloutDriver`, so rollouts stay per-context and are never cached as a global answer. `ez-php/cache` is a `suggest` + `require-dev`; without a bound `CacheInterface` the TTL is ignored.
 - **Percentage rollouts are a decorator, not a new storage format.** `Driver\RolloutDriver` wraps whichever driver is configured; the percentages come from `flags.rollouts` (flag name → 0–100), so the file/database/redis stores stay boolean and unchanged. The bucket is `crc32(name.'|'.contextId) % 100`: deterministic per user, monotonic when the percentage is raised, independent between flags. A configured rollout *replaces* the inner driver's answer for that flag; `enabled()` without a context is true only at 100 %. The per-context entry point already existed (`Flag::enabledFor()`), so no signature changed.
 
 ## Testing approach
@@ -404,7 +407,7 @@ Most tests need no external infrastructure; `RedisDriverTest` is the one excepti
 
 - **Flag management (enable/disable via API)** — use direct DB access, a migration, or an admin panel
 - **Targeting rules beyond a percentage** (segments, attribute rules, schedules, A/B experiments with analytics) — use a dedicated feature management service. Plain percentage rollouts *are* here (`RolloutDriver`)
-- **Flag caching layer** — rely on OPcache (FileDriver) or application-level caching
+- **The cache as the primary flag store** — `CachedDriver` only fronts a real driver; an evicted entry is re-read from it. A cache-only driver would silently flip flags to `false` on eviction
 - **HTTP endpoint for flag listing** — expose flags via your own controller if needed
 - **Flag validation or type enforcement** — flags are booleans only; typed variants belong in a separate abstraction
 

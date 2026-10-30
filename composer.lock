@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "49c6f94c6db5297781146e37bb5e1289",
+    "content-hash": "2dfe5286efe17f1a99573ab13184e139",
     "packages": [
         {
             "name": "ez-php/contracts",
@@ -522,6 +522,71 @@
                 "source": "https://github.com/igorw/evenement/tree/v3.0.2"
             },
             "time": "2023-08-08T05:53:35+00:00"
+        },
+        {
+            "name": "ez-php/cache",
+            "version": "2.6.4",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/ez-php/cache.git",
+                "reference": "7744060f0877e188aed8d769ff01e1eb9fc0f7fc"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/ez-php/cache/zipball/7744060f0877e188aed8d769ff01e1eb9fc0f7fc",
+                "reference": "7744060f0877e188aed8d769ff01e1eb9fc0f7fc",
+                "shasum": ""
+            },
+            "require": {
+                "ez-php/contracts": "^2.6.0",
+                "php": "^8.5"
+            },
+            "require-dev": {
+                "ez-php/console": "^2.6.0",
+                "ez-php/docker": "^2.6.0",
+                "ez-php/testing-application": "^2.6.0",
+                "friendsofphp/php-cs-fixer": "^3.94",
+                "phpstan/phpstan": "^2.1",
+                "phpstan/phpstan-deprecation-rules": "^2.0",
+                "phpstan/phpstan-strict-rules": "^2.0",
+                "phpunit/phpunit": "^13.0"
+            },
+            "suggest": {
+                "ext-apcu": "Needed for ApcuDriver (CLI: apc.enable_cli=1)",
+                "ext-memcached": "Needed for MemcachedDriver",
+                "ext-redis": "Needed for RedisDriver",
+                "ez-php/console": "Needed for the cache:clear and cache:prune commands"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "EzPhp\\Cache\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Andreas Uretschnig",
+                    "email": "andreas.uretschnig@gmail.com"
+                }
+            ],
+            "description": "Cache module for the ez-php framework — array, file, and Redis drivers with a unified interface",
+            "homepage": "https://github.com/ez-php/cache",
+            "keywords": [
+                "cache",
+                "ez-php",
+                "framework",
+                "php",
+                "redis"
+            ],
+            "support": {
+                "issues": "https://github.com/ez-php/cache/issues",
+                "source": "https://github.com/ez-php/cache"
+            },
+            "time": "2026-10-30T00:22:55+00:00"
         },
         {
             "name": "ez-php/docker",

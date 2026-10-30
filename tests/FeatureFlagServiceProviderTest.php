@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace Tests;
 
+use EzPhp\Cache\ArrayDriver as CacheArrayDriver;
+use EzPhp\Cache\CacheInterface;
 use EzPhp\FeatureFlags\Driver\ArrayDriver;
+use EzPhp\FeatureFlags\Driver\CachedDriver;
+use EzPhp\FeatureFlags\Driver\FileDriver;
 use EzPhp\FeatureFlags\Driver\RedisDriver;
 use EzPhp\FeatureFlags\Driver\RolloutDriver;
 use EzPhp\FeatureFlags\FeatureFlagServiceProvider;
@@ -27,6 +31,8 @@ use Tests\Support\FakeContainer;
 #[UsesClass(ArrayDriver::class)]
 #[UsesClass(RedisDriver::class)]
 #[UsesClass(RolloutDriver::class)]
+#[UsesClass(CachedDriver::class)]
+#[UsesClass(FileDriver::class)]
 #[UsesClass(Flag::class)]
 final class FeatureFlagServiceProviderTest extends TestCase
 {
@@ -128,5 +134,34 @@ final class FeatureFlagServiceProviderTest extends TestCase
         $this->assertTrue($manager->enabled('redis-only-flag'));
 
         $redis->flushDB();
+    }
+
+    public function test_cache_ttl_wraps_the_store_in_a_cached_driver(): void
+    {
+        $file = tempnam(sys_get_temp_dir(), 'ez-flags-');
+        file_put_contents($file, "<?php return ['beta' => true];");
+
+        try {
+            $container = new FakeContainer(new FakeConfig(['flags.driver' => 'file', 'flags.file' => $file, 'flags.cache_ttl' => 60]));
+            $container->instance(CacheInterface::class, new CacheArrayDriver());
+            (new FeatureFlagServiceProvider($container))->register();
+            $manager = $container->make(FlagManager::class);
+
+            $before = $manager->enabled('beta');
+            file_put_contents($file, "<?php return ['beta' => false];");
+
+            // Served from the cache until the TTL runs out (or CachedDriver::forget()).
+            self::assertSame([true, true], [$before, $manager->enabled('beta')]);
+        } finally {
+            @unlink($file);
+        }
+    }
+
+    public function test_without_a_bound_cache_the_ttl_is_ignored(): void
+    {
+        $container = new FakeContainer(new FakeConfig(['flags.driver' => 'array', 'flags.cache_ttl' => 60]));
+        (new FeatureFlagServiceProvider($container))->register();
+
+        self::assertSame([], $container->make(FlagManager::class)->all());
     }
 }
