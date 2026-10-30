@@ -272,6 +272,7 @@ src/
 ├── FlagDriverInterface.php           — contract: enabled(), enabledFor(), all()
 ├── FlagManager.php                   — delegates to driver; enabled(), enabledFor(), disabled(), disabledFor(), all()
 ├── Flag.php                          — static facade backed by FlagManager singleton
+├── FeatureMiddleware.php              — `feature:a,b` route middleware; 404 unless every named flag is enabled
 ├── FeatureFlagServiceProvider.php    — binds FlagManager and initialises the Flag facade
 └── Driver/
     ├── ArrayDriver.php               — in-memory array (testing + hardcoded flags)

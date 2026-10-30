@@ -45,6 +45,25 @@ $all = Flag::all(); // ['new-checkout' => true, 'dark-mode' => false]
 
 ---
 
+## Route middleware
+
+`FeatureMiddleware` answers 404 unless every named flag is enabled, so a disabled feature looks like it
+does not exist. Register the alias yourself, as with other parameterized middleware:
+
+```php
+use EzPhp\FeatureFlags\FeatureMiddleware;
+
+$app->middlewareAlias('feature', FeatureMiddleware::class);
+
+$router->get('/checkout', $handler)->middleware('feature:new-checkout');
+$router->get('/beta', $handler)->middleware('feature:beta,new-ui'); // both must be on
+```
+
+It reads the global flag state. A per-user rollout (`Flag::enabledFor()`) needs the request's user, so
+check that in your own middleware or controller.
+
+---
+
 ## Configuration
 
 Add a `config/flags.php` to your application:
