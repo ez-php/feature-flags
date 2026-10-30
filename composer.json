@@ -1,6 +1,6 @@
 {
     "name": "ez-php/feature-flags",
-    "version": "2.6.5",
+    "version": "2.7.0",
     "description": "Simple feature flag evaluation for the ez-php framework — File, Database, Redis, and Array drivers with a static Flag facade",
     "type": "library",
     "license": "MIT",
@@ -26,15 +26,15 @@
     },
     "require": {
         "php": "^8.5",
-        "ez-php/contracts": "^2.6.0"
+        "ez-php/contracts": "^2.7.0"
     },
     "suggest": {
         "ext-redis": "Needed for Driver\\RedisDriver",
         "ez-php/cache": "Needed for Driver\\CachedDriver (flags.cache_ttl)"
     },
     "require-dev": {
-        "ez-php/docker": "^2.6.0",
-        "ez-php/cache": "^2.6.0",
+        "ez-php/docker": "^2.7.0",
+        "ez-php/cache": "^2.7.0",
         "phpunit/phpunit": "^13.0",
         "phpstan/phpstan": "^2.1",
         "friendsofphp/php-cs-fixer": "^3.94",
